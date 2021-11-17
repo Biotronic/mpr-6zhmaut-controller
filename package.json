@@ -1,0 +1,25 @@
+{
+  "name": "mpr-6zhmaut-api2",
+  "version": "1.0.0",
+  "description": "API for interfacing with Monoprice's MPR-6ZHMAUT amplifier",
+  "main": "dist/app.js",
+  "scripts": {
+    "start": "tsc --resolveJsonModule && sass src/index.scss dist/index.css && node dist/app.js"
+  },
+  "author": "Biotronic",
+  "license": "WTFPL",
+  "devDependencies": {
+    "@types/express": "^4.17.13",
+    "tslint": "^6.1.3",
+    "typescript": "^4.4.4"
+  },
+  "dependencies": {
+    "class-transformer": "^0.4.0",
+    "class-validator": "^0.13.1",
+    "express": "^4.17.1",
+    "reflect-metadata": "^0.1.13",
+    "sass": "^1.43.4",
+    "serialport": "^9.2.5",
+    "source-map-support": "^0.5.20"
+  }
+}
