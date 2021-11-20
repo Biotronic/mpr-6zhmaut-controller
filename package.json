@@ -4,7 +4,7 @@
   "description": "API for interfacing with Monoprice's MPR-6ZHMAUT amplifier",
   "main": "dist/app.js",
   "scripts": {
-    "start": "tsc --resolveJsonModule && sass src/index.scss dist/index.css && node dist/app.js"
+    "start": "tsc --resolveJsonModule && node dist/app.js"
   },
   "author": "Biotronic",
   "license": "WTFPL",

@@ -127,7 +127,7 @@ function updateZones(delta: Partial<Zone>[]) {
 function updateSources(delta: Partial<Source>[]) {
     for (let dSource of delta) {
         if (dSource["name"] !== undefined) {
-            writeSerial(`{dSource.id}<${sanitizeName(dSource.name)}\n`);
+            writeSerial(`${dSource.id}<${sanitizeName(dSource.name)}\n`);
         }
         Object.assign(getSource(dSource.id), dSource);
     }
@@ -169,7 +169,7 @@ function paramRegex(param: string, regex: RegExp, fn: () => { id:number }[] = nu
 
 paramRegex('zone',      /^[1-3][0-6]$/, () => zones);
 paramRegex('attribute', /^(pa|power|mute|dnd|volume|treble|bass|balance|source)$/);
-paramRegex('source',    /^[0-6]$/, () => sources);
+paramRegex('source',    /^0[0-6]$/, () => sources);
 paramRegex('scenario',  /^\d+$/, () => scenarios);
 
 
@@ -234,6 +234,7 @@ app.post('/api/zones', (req, res) => {
 });
 app.post('/api/zones/:zone', (req, res) => {
     console.log(`${req.method} ${req.url}`);
+    console.log(req.body);
     updateZones([set(req.body, "id", req.params.zone)]);
     res.json(getZone(parseInt(req.params.zone)));
 });
@@ -388,22 +389,6 @@ app.delete('/api/scenarios/:scenario', (req, res) => {
     console.log(`${req.method} ${req.url}`);
     scenarios = scenarios.filter(s => s.id != parseInt(req.params.scenario));
     res.json(scenarios);
-});
-
-///////////////////////////////////////////////////////////////////////////////
-///  Web UI
-///////////////////////////////////////////////////////////////////////////////
-app.get('/', (req, res) => {
-    res.set('Content-Type', 'text/html');
-    res.send(fs.readFileSync('src/index.htm'));
-});
-app.get('/index.css', (req, res) => {
-    res.set('Content-Type', 'text/css');
-    res.send(sass.renderSync({file: "src/index.scss"}).css.toString());
-});
-app.get('/index.js', (req, res) => {
-    res.set('Content-Type', 'text/javascript');
-    res.send(fs.readFileSync('src/index.js'));
 });
 
 app.listen(port, () => {
