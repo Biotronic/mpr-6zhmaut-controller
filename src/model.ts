@@ -74,21 +74,66 @@ export class Scenario {
 }
 
 export class Ramp {
-    zone: number;
-    attribute: string;
-    next: number;
-    step: number;
-    target: number;
-    enabled: boolean;
-}
-
-export function test() {
-    var zone = new Zone();
-    Object.assign(zone, {
-        id: 11
-    });
-
-    validate(zone).then(errors => {
-        console.log(errors);
-    });
+    public id: number;
+    public target: Partial<Zone>;
+    public step: Partial<Zone>;
+    
+    constructor(zone: number, attribute: string, target: number, step: number) {
+        this.id = zone;
+        this.target = {};
+        this.step = {};
+        this.step[attribute] = step;
+        target = Math.max(0, target);
+        switch (attribute) {
+            case "volume":
+                this.target[attribute] = Math.min(38, target);
+                break;
+            case "treble":
+                this.target[attribute] = Math.min(14, target);
+                break;
+            case "bass":
+                this.target[attribute] = Math.min(14, target);
+                break;
+            case "balance":
+                this.target[attribute] = Math.min(20, target);
+                break;
+        }
+    }
+    
+    public merge(ramp: Ramp) {
+        if (ramp.id != this.id) {
+            return;
+        }
+        Object.assign(this.target, ramp.target);
+        Object.assign(this.step, ramp.step);
+    }
+    
+    public get finished(): boolean {
+        console.log(this);
+        return Object.values(this.target).filter(a => a).length == 0;
+    }
+    
+    public next(current: Zone): Partial<Zone> {
+        let result = { id: this.id };
+        
+        for (let i of Object.keys(this.target)) {
+            if (current[i] >= this.target[i] && this.step[i] > 0) {
+                this.target[i] = this.step[i] = undefined;
+            } else if (current[i] <= this.target[i] && this.step[i] < 0) {
+                this.target[i] = this.step[i] = undefined;
+            } else if (!this.step[i]) {
+                this.target[i] = this.step[i] = undefined;
+            } else {
+                result[i] = current[i] + this.step[i];
+            }
+        }
+        
+        return result;
+    }
+    
+    public stop(ramp: Ramp) {
+        for (let i of Object.keys(ramp.target)) {
+            this.target[i] = this.step[i] = undefined;
+        }
+    }
 }
