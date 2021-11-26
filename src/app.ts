@@ -3,13 +3,13 @@ import 'source-map-support/register'
 import express from "express";
 import { plainToClass } from 'class-transformer';
 import { Zone, Source, Scenario, Ramp } from './model';
+import { runEmulator } from './test';
 
 const cors = require('cors');
 const fs = require('fs');
 const SerialPort = require("serialport");
 const Readline = require('@serialport/parser-readline');
 
-const AmpCount = process.env.AMPCOUNT || 1;
 const BaudRate = parseInt(process.env.BAUDRATE || "9600");
 const device = process.env.DEVICE || "COM4";
 const serial = new SerialPort(device, {
@@ -50,7 +50,7 @@ parser.on('data', function (data) {
     }
 });
 const readZones = () => {
-    for (let amp = 1; amp <= AmpCount; ++amp) {
+    for (let amp = 1; amp <= 3; ++amp) {
         writeSerial(`?${amp}0\n`);
     }
 }
@@ -350,5 +350,10 @@ app.delete('/api/scenarios/:scenario', (req, res) => {
 });
 
 app.listen(port, () => {
+    console.log(process.argv);
+    console.log(process.argv[2]);
+    if (process.argv[2] == 'test') {
+        runEmulator();
+    }
     return console.log(`server is listening on ${port}`);
 });
