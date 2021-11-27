@@ -109,8 +109,7 @@ export class Ramp {
     }
     
     public get finished(): boolean {
-        console.log(this);
-        return Object.values(this.target).filter(a => a).length == 0;
+        return Object.values(this.target).filter(a => a !== undefined).length == 0;
     }
     
     public next(current: Zone): Partial<Zone> {

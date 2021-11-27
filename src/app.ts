@@ -3,15 +3,16 @@ import 'source-map-support/register'
 import express from "express";
 import { plainToClass } from 'class-transformer';
 import { Zone, Source, Scenario, Ramp } from './model';
-import { runEmulator } from './test';
+import { runEmulator } from './emulator';
 
+const log = require("loglevel");
 const cors = require('cors');
 const fs = require('fs');
 const SerialPort = require("serialport");
 const Readline = require('@serialport/parser-readline');
 
 const BaudRate = parseInt(process.env.BAUDRATE || "9600");
-const device = process.env.DEVICE || "COM4";
+const device = process.env.DEVICE || "COM6";
 const serial = new SerialPort(device, {
     baudRate: BaudRate,
 });
@@ -23,10 +24,12 @@ const rampInterval = parseInt(process.env.RAMPTIME || "250");
 const parser = serial.pipe(new Readline({ delimiter: "\n", encoding: "ascii" }));
 
 const writeSerial = (line) => {
-    serial.write(line);
+    log.info("Sent", line);
+    serial.write(line+"\n");
 };
 
 parser.on('data', function (data) {
+    log.info("Received ", data);
     if (data.startsWith('Command Error.')) {
         process.exit(1);
     }
@@ -51,10 +54,11 @@ parser.on('data', function (data) {
 });
 const readZones = () => {
     for (let amp = 1; amp <= 3; ++amp) {
-        writeSerial(`?${amp}0\n`);
+        writeSerial(`?${amp}0`);
     }
 }
 serial.on("open", function () {
+    console.log(`Listening on port ${device}`);
     readZones();
 });
 
@@ -81,46 +85,45 @@ function writeAttribute(id: number, attribute: string, value: boolean | number) 
     switch (attribute) {
         case "power":
             value = zone.power = !!value;
-            writeSerial(`<${id}PR${value ? "01" : "00"}\n`);
+            writeSerial(`<${id}PR${value ? "01" : "00"}`);
             break;
         case "pa":
             value = zone.pa = !!value;
-            writeSerial(`<${id}PA${value ? "01" : "00"}\n`);
+            writeSerial(`<${id}PA${value ? "01" : "00"}`);
             break;
         case "mute":
             value = zone.mute = !!value;
-            writeSerial(`<${id}MU${value ? "01" : "00"}\n`);
+            writeSerial(`<${id}MU${value ? "01" : "00"}`);
             break;
         case "dnd":
             value = zone.dnd = !!value;
-            writeSerial(`<${id}DT${value ? "01" : "00"}\n`);
+            writeSerial(`<${id}DT${value ? "01" : "00"}`);
             break;
         case "volume":
             value = zone.volume = Math.max(0, Math.min(38, value as number));
-            writeSerial(`<${id}VO${pad(value)}\n`);
+            writeSerial(`<${id}VO${pad(value)}`);
             break;
         case "treble":
             value = zone.treble = Math.max(0, Math.min(14, value as number));
-            writeSerial(`<${id}TR${pad(value)}\n`);
+            writeSerial(`<${id}TR${pad(value)}`);
             break;
         case "bass":
             value = zone.bass = Math.max(0, Math.min(14, value as number));
-            writeSerial(`<${id}BS${pad(value)}\n`);
+            writeSerial(`<${id}BS${pad(value)}`);
             break;
         case "balance":
             value = zone.balance = Math.max(0, Math.min(20, value as number));
-            writeSerial(`<${id}BL${pad(value)}\n`);
+            writeSerial(`<${id}BL${pad(value)}`);
             break;
         case "source":
             value = zone.source = Math.max(1, Math.min(6, value as number));
-            writeSerial(`<${id}CH${pad(value)}\n`);
+            writeSerial(`<${id}CH${pad(value)}`);
             break;
         default: return;
     }
 }
 
 function updateZones(delta: Partial<Zone>[]) {
-    //console.log('updateZones');
     for (let dZone of delta) {
         for (let attribute of Object.keys(dZone)) {
             writeAttribute(dZone.id, attribute, dZone[attribute]);
@@ -132,7 +135,7 @@ function updateZones(delta: Partial<Zone>[]) {
 function updateSources(delta: Partial<Source>[]) {
     for (let dSource of delta) {
         if (dSource["name"] !== undefined) {
-            writeSerial(`${dSource.id}<${sanitizeName(dSource.name)}\n`);
+            writeSerial(`${dSource.id}<${sanitizeName(dSource.name)}`);
             getSource(dSource.id).name = dSource.name;
         }
     }
@@ -186,7 +189,6 @@ let ramps: Ramp[] = [];
 let rampTimer: NodeJS.Timer;
 
 function rampTick() {
-    console.log('rampTick calling updateZones');
     updateZones(ramps.map(r => r.next(getZone(r.id))));
     ramps = ramps.filter(r => !r.finished);
     if (!ramps.length) {
@@ -237,29 +239,24 @@ app.post('/api/zones/reload', (req, res) => {
     res.json(zones.filter(z => z));
 });
 app.post('/api/zones', (req, res) => {
-    console.log('/api/zones calling updateZones');
     updateZones(req.body);
     res.json(zones.filter(z => z));
 });
 app.post('/api/zones/:zone', (req, res) => {
-    console.log('/api/zones/:zone calling updateZones');
     updateZones([set(req.body, "id", req.params.zone)]);
     res.json(getZone(parseInt(req.params.zone)));
 });
 app.post('/api/zones/:zone/:attribute', (req, res) => {
-    console.log('/api/zones/:zone/:attribute calling updateZones');
     updateZones([set({ id: req.params.zone }, req.params.attribute, req.body)]);
     res.json(getZone(parseInt(req.params.zone))[req.params.attribute]);
 });
 app.post('/api/zones/:zone/:attribute/up', (req, res) => {
     let old = getZone(parseInt(req.params.zone))[req.params.attribute];
-    console.log('/api/zones/:zone/:attribute/up calling updateZones');
     updateZones([set({ id: req.params.zone }, req.params.attribute, old + (req.body || 1))]);
     res.json(getZone(parseInt(req.params.zone))[req.params.attribute]);
 });
 app.post('/api/zones/:zone/:attribute/down', (req, res) => {
     let old = getZone(parseInt(req.params.zone))[req.params.attribute];
-    console.log('/api/zones/:zone/:attribute/dow calling updateZones');
     updateZones([set({ id: req.params.zone }, req.params.attribute, old - (req.body || 1))]);
     res.json(getZone(parseInt(req.params.zone))[req.params.attribute]);
 });
@@ -269,12 +266,12 @@ app.post('/api/zones/:zone/:attribute/rampup', (req, res) => {
     res.json(getZone(parseInt(req.params.zone))[req.params.attribute]);
 });
 app.post('/api/zones/:zone/:attribute/rampdown', (req, res) => {
-    let ramp = new Ramp(parseInt(req.params.zone), req.params.attribute, 0, 0);
+    let ramp = new Ramp(parseInt(req.params.zone), req.params.attribute, 0, -1);
     startRamp(ramp);
     res.json(getZone(parseInt(req.params.zone))[req.params.attribute]);
 });
 app.post('/api/zones/:zone/:attribute/rampstop', (req, res) => {
-    let ramp = new Ramp(parseInt(req.params.zone), req.params.attribute, 0, -1);
+    let ramp = new Ramp(parseInt(req.params.zone), req.params.attribute, 0, 0);
     stopRamp(ramp);
     res.json(getZone(parseInt(req.params.zone))[req.params.attribute]);
 });
@@ -283,7 +280,6 @@ app.post('/api/zones/:zone/source/next', (req, res) => {
     for (let i = 1; i <= 6; ++i) {
         let idx = (old + i - 1) % 6 + 1;
         if (sources[idx].enabled) {
-            console.log('/api/zones/:zone/source/next calling updateZones');
             updateZones([{ id: parseInt(req.params.zone), source: idx }]);
             res.json(idx);
             break;
@@ -295,7 +291,6 @@ app.post('/api/zones/:zone/source/previous', (req, res) => {
     for (let i = 0; i < 6; ++i) {
         let idx = (old + 6 - i - 1) % 6 + 1;
         if (sources[idx].enabled) {
-            console.log('/api/zones/:zone/source/previous calling updateZones');
             updateZones([{ id: parseInt(req.params.zone), source: idx }]);
             res.json(idx);
             break;
@@ -350,10 +345,9 @@ app.delete('/api/scenarios/:scenario', (req, res) => {
 });
 
 app.listen(port, () => {
-    console.log(process.argv);
-    console.log(process.argv[2]);
     if (process.argv[2] == 'test') {
-        runEmulator();
+        log.setLevel("info");
+        runEmulator(2);
     }
     return console.log(`server is listening on ${port}`);
 });
