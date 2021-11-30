@@ -12,7 +12,7 @@ const SerialPort = require("serialport");
 const Readline = require('@serialport/parser-readline');
 
 const BaudRate = parseInt(process.env.BAUDRATE || "9600");
-const device = process.env.DEVICE || "COM6";
+const device = process.env.DEVICE || "COM4";
 const serial = new SerialPort(device, {
     baudRate: BaudRate,
 });
@@ -35,7 +35,7 @@ parser.on('data', function (data) {
     }
     const zone = data.toString("ascii").match(/>(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/);
     if (zone != null) {
-        zones[zone[1]] = {
+        let newZone: Zone = {
             "id":          parseInt(zone[1]),
             "name":        "Name",
             "description": "",
@@ -49,6 +49,12 @@ parser.on('data', function (data) {
             "balance":     parseInt(zone[9]),
             "source":      parseInt(zone[10])
         };
+        let existing = zones.find(z => z.id == newZone.id);
+        if (existing) {
+            Object.assign(existing, newZone);
+        } else {
+            zones.push(newZone);
+        }
         fs.writeFileSync('src/zones.json', JSON.stringify(zones, null, 4));
     }
 });
