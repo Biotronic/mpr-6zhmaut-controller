@@ -24,12 +24,12 @@ const rampInterval = parseInt(process.env.RAMPTIME || "250");
 const parser = serial.pipe(new Readline({ delimiter: "\n", encoding: "ascii" }));
 
 const writeSerial = (line) => {
-    log.info("Sent", line);
+    //log.info("Sent", line);
     serial.write(line+"\n");
 };
 
 parser.on('data', function (data) {
-    log.info("Received ", data);
+    //log.info("Received ", data);
     if (data.startsWith('Command Error.')) {
         process.exit(1);
     }
@@ -97,38 +97,47 @@ function writeAttribute(id: number, attribute: string, value: boolean | number |
             zone.description = ''+value;
             break;
         case "power":
+            if (zone.power == value) break;
             value = zone.power = !!value;
             writeSerial(`<${id}PR${value ? "01" : "00"}`);
             break;
         case "pa":
+            if (zone.pa == value) break;
             value = zone.pa = !!value;
             writeSerial(`<${id}PA${value ? "01" : "00"}`);
             break;
         case "mute":
+            if (zone.mute == value) break;
             value = zone.mute = !!value;
             writeSerial(`<${id}MU${value ? "01" : "00"}`);
             break;
         case "dnd":
+            if (zone.dnd == value) break;
             value = zone.dnd = !!value;
             writeSerial(`<${id}DT${value ? "01" : "00"}`);
             break;
         case "volume":
+            if (zone.volume == value) break;
             value = zone.volume = Math.max(0, Math.min(38, value as number));
             writeSerial(`<${id}VO${pad(value)}`);
             break;
         case "treble":
+            if (zone.treble == value) break;
             value = zone.treble = Math.max(0, Math.min(14, value as number));
             writeSerial(`<${id}TR${pad(value)}`);
             break;
         case "bass":
+            if (zone.bass == value) break;
             value = zone.bass = Math.max(0, Math.min(14, value as number));
             writeSerial(`<${id}BS${pad(value)}`);
             break;
         case "balance":
+            if (zone.balance == value) break;
             value = zone.balance = Math.max(0, Math.min(20, value as number));
             writeSerial(`<${id}BL${pad(value)}`);
             break;
         case "source":
+            if (zone.source == value) break;
             value = zone.source = Math.max(1, Math.min(6, value as number));
             writeSerial(`<${id}CH${pad(value)}`);
             break;
@@ -137,9 +146,9 @@ function writeAttribute(id: number, attribute: string, value: boolean | number |
 }
 
 function updateZones(delta: Partial<Zone>[]) {
-    console.log(delta);
     for (let dZone of delta) {
         for (let attribute of Object.keys(dZone)) {
+            if (dZone[attribute] === null) continue;
             writeAttribute(dZone.id, attribute, dZone[attribute]);
         }
     }
@@ -382,6 +391,8 @@ app.post('/api/scenarios/:scenario', (req, res) => {
 });
 app.post('/api/scenarios/:scenario/engage', (req, res) => {
     let scenario = getScenario(parseInt(req.params.scenario));
+    console.log('Engaging scenario: ', scenario.name);
+    updateZones(scenario.zones);
 });
 app.delete('/api/scenarios/:scenario', (req, res) => {
     scenarios = scenarios.filter(s => s.id != parseInt(req.params.scenario));
