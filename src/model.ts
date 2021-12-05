@@ -70,7 +70,7 @@ export class Scenario {
     
     name: string;
     description: string;
-    zones: Zone[];
+    zones: Partial<Zone>[];
 }
 
 export class Ramp {

@@ -150,9 +150,35 @@ function updateSources(delta: Partial<Source>[]) {
 
 function updateScenarios(delta: Partial<Scenario>[]) {
     for (let dScenario of delta) {
-        Object.assign(getScenario(dScenario.id), dScenario);
+        let existing = getScenarioOrNull(dScenario.id);
+        if (existing) {
+            existing.name = dScenario.name;
+            existing.description = dScenario.description;
+            existing.zones = dScenario.zones;
+        } else {
+            let scenario: Scenario = {
+                id: dScenario.id || getScenarioId(),
+                name: dScenario.name,
+                description: dScenario.description,
+                zones: dScenario.zones
+            };
+            scenarios.push(scenario);
+        }
     }
     fs.writeFileSync('src/scenarios.json', JSON.stringify(scenarios, null, 4));
+}
+
+function getScenarioId() {
+    let ids = scenarios.map(s => s.id).sort();
+    let id = 1;
+    for (let scenario of scenarios) {
+        if (scenario.id == id) {
+            ++id;
+        } else {
+            return id;
+        }
+    }
+    return id;
 }
 
 function fail(message: string): never {
@@ -169,6 +195,10 @@ function getSource(id: number): Source {
 
 function getScenario(id: number): Scenario {
     return scenarios.find(s => s?.id == id) || fail(`Scenario not found: ${id}`);
+}
+
+function getScenarioOrNull(id: number): Scenario {
+    return scenarios.find(s => s?.id == id);
 }
 
 function paramRegex(param: string, regex: RegExp, fn: () => { id:number }[] = null) {
