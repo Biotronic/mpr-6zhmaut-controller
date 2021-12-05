@@ -35,6 +35,7 @@ parser.on('data', function (data) {
     }
     const zone = data.toString("ascii").match(/>(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/);
     if (zone != null) {
+        let name = fileZones.filter(z => z.id == parseInt(zone[1]))[0]?.name || `Zone ${zone[1]}`;
         let newZone: Zone = {
             "id":          parseInt(zone[1]),
             "name":        "Name",
@@ -73,7 +74,8 @@ function set(obj: any, attribute: string, value: any): any {
     return obj;
 }
 
-let zones: Zone[]         = JSON.parse(fs.readFileSync('src/zones.json'    )).map(x => plainToClass(Zone,     x));
+let zones: Zone[]         = [];
+let fileZones: Zone[]     = JSON.parse(fs.readFileSync('src/zones.json'    )).map(x => plainToClass(Zone,     x));
 let sources: Source[]     = JSON.parse(fs.readFileSync('src/sources.json'  )).map(x => plainToClass(Source,   x));
 let scenarios: Scenario[] = JSON.parse(fs.readFileSync('src/scenarios.json')).map(x => plainToClass(Scenario, x));
 
@@ -82,13 +84,18 @@ function pad(s: any): string {
 }
 
 function sanitizeName(name: string): string {
-    // TODO
-    return "test    ";
+    return (name.replace(/[\x00-\x08\x0E-\x1F\x7F-\uFFFF]/g, '') + '        ').substring(0, 8);
 }
 
-function writeAttribute(id: number, attribute: string, value: boolean | number) {
+function writeAttribute(id: number, attribute: string, value: boolean | number | string) {
     let zone = getZone(id);
     switch (attribute) {
+        case "name":
+            zone.name = ''+value;
+            break;
+        case "description":
+            zone.description = ''+value;
+            break;
         case "power":
             value = zone.power = !!value;
             writeSerial(`<${id}PR${value ? "01" : "00"}`);
@@ -130,6 +137,7 @@ function writeAttribute(id: number, attribute: string, value: boolean | number) 
 }
 
 function updateZones(delta: Partial<Zone>[]) {
+    console.log(delta);
     for (let dZone of delta) {
         for (let attribute of Object.keys(dZone)) {
             writeAttribute(dZone.id, attribute, dZone[attribute]);
@@ -383,7 +391,7 @@ app.delete('/api/scenarios/:scenario', (req, res) => {
 app.listen(port, () => {
     if (process.argv[2] == 'test') {
         log.setLevel("info");
-        runEmulator(2);
+        runEmulator(1);
     }
     return console.log(`server is listening on ${port}`);
 });
